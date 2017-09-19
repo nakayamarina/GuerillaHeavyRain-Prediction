@@ -5,7 +5,8 @@
 #            第2引数：テスト用データに使用するcsvファイルへのあるディレクトリ
 # data     : ./wetherInfo.csv
 #            wether2csv.pyで書き出したcsvファイル
-# memo     : 雨量10mm以上をゲリラ豪雨とし、NNで学習・識別率算出
+# memo     : 雨量10mm以上をゲリラ豪雨とし、学習・識別率算出
+#            手法：Neural Network, LinearRegression
 # ---------------------------------------------------------------------
 
 from sklearn.neural_network import MLPClassifier
@@ -19,6 +20,7 @@ import numpy as np
 import pandas as pd
 import sys
 
+#csv読み込み、欠損値除去
 def input_data(dr):
     #読み込みたいcsvファイルへのパス作成、読み込み
     path = dr + 'wetherInfo.csv'
@@ -28,23 +30,37 @@ def input_data(dr):
 
     return input_data
 
-def data_vec(input_data):
-    data = input_data.iloc[:, 2:6]
+
+#特徴抽出
+def data_fe(data):
+    data['temp_dfr'] = data['temp'] - data['temp'].shift(1)
+    data['wind_dfr'] = data['wind'] - data['wind'].shift(1)
+    data['humidity_dfr'] = data['humidity'] - data['humidity'].shift(1)
+    data = data.dropna()
+
+    return data
+
+
+#ベクトル化
+def data_vec(data_vec):
+    data_vec = data_vec.iloc[:, 2:6]
     #ベクトル化
-    data_vec = data.as_matrix()
+    x_data = data_vec.as_matrix()
 
-    return (data_vec)
+    return x_data
 
 
-#Neural Network
-def NN_label_vec(input_data):
+#ラベル作成：Neural Network
+def NN_label_vec(label_vec):
     #1時間後に雨が10mm以上降れば１、降らなければ０でラベルを作成
-    data = np.array(input_data.rain >= 5, dtype = 'int')
-    label_vec = np.roll(data, -1)
-    label_vec[len(label_vec) - 1] = 0
+    label_vec = np.array(label_vec.rain >= 5, dtype = 'int')
+    y_data = np.roll(data, -1)
+    y_data[len(y_data) - 1] = 0
 
-    return label_vec
+    return y_data
 
+
+#学習・識別率算出：Neural Network
 def NN(x_train, y_train, x_test, y_test):
     #オブジェクト生成
     clf = MLPClassifier(hidden_layer_sizes=(100,100), random_state=1)
@@ -55,14 +71,16 @@ def NN(x_train, y_train, x_test, y_test):
     print(metrics.classification_report(y_test, predicted))
 
 
-#Liner Regression
+#ラベル作成：Linear Regression
 def LR_label_vec(input_data):
     data = np.array(input_data.rain)
     label_vec = np.roll(data, -1)
-    label_vec[len(label_vec)-1] = 0
+    label_vec[len(Neural Networklabel_vec)-1] = 0
 
     return label_vec
 
+
+#学習・識別率算出：Linear Regression
 def LR(x_train, y_train, x_test, y_test):
     #オブジェクト生成
     mod = LinearRegression(fit_intercept = True, normalize = True, copy_X = True, n_jobs = 1)
@@ -97,27 +115,25 @@ if __name__ == '__main__':
     input_test = input_data(dr_test)
 
     #特徴抽出
+    data_train = data_fe(input_train)
+    data_test = data_fe(input_test)
 
     #ベクトル化
-    x_train = data_vec(input_train)
-    x_test = data_vec(input_test)
+    x_train = data_vec(data_train)
+    x_test = data_vec(data_test)
 
 
+    #ラベル作成：Neral Network
+    #y_train = NN_label_vec(data_train)
+    #y_test = NN_label_vec(data_test)
 
-    #ラベル作成
+    #学習・識別率算出：Neural Network
+    #NN(x_train, y_train, x_test, y_test)
 
-    #Neral Network
-    #y_train = NN_label_vec(input_train)
-    #y_test = NN_label_vec(input_test)
 
-    #Liner Regression
+    #ラベル作成：Linear Regression
     y_train = LR_label_vec(input_train)
     y_test = LR_label_vec(input_test)
 
-    #学習・識別率算出
-
-    #Neural Network
-    #NN(x_train, y_train, x_test, y_test)
-
-    #Liner Regression
+    #学習・識別率算出：Linear Regression
     LR(x_train, y_train, x_test, y_test)
