@@ -3,9 +3,9 @@
 # filename : GHRPrediction.py
 # args     : 第1引数：教師用データに使用するcsvファイルのあるディレクトリ
 #            第2引数：テスト用データに使用するcsvファイルへのあるディレクトリ
-# data     : ./wetherInfo.csv
-#            wether2csv.pyで書き出したcsvファイル
-# memo     : 天候情報を学習・識別率算出
+# data     : ./kochi_train/wetherInfo.csv
+#            wether_train.pyで書き出したcsvファイル
+# memo     : 天候情報を学習・ゲリラ豪雨がくるかどうか識別率算出、用いた特徴をcsvで書き出し
 # ---------------------------------------------------------------------
 
 from sklearn.neural_network import MLPClassifier
@@ -13,6 +13,7 @@ from sklearn import datasets, metrics
 from sklearn.linear_model import LinearRegression
 from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LogisticRegression
 
 # 平均二乗誤差を評価するためのメソッドを呼び出し
 from sklearn.metrics import mean_squared_error
@@ -47,14 +48,17 @@ def data_vec(data):
     #欠損値除去
     data = data.dropna()
 
-    #ベクトル化
-    x_data = data.as_matrix()
+    #標準化
+    zscore_data = data.apply(lambda x: (x-x.mean())/x.std(), axis=0).fillna(0)
 
-    return x_data, data
+    #ベクトル化
+    x_data = zscore_data.as_matrix()
+
+    return x_data, data, zscore_data
 
 
 #ラベル作成：Neural Network
-def NN_label_vec(label_vec):
+def MLPC_label_vec(label_vec):
     #1時間後に雨が10mm以上降れば１、降らなければ０でラベルを作成
     label_vec = np.array(label_vec.rain >= 10, dtype = 'int')
     y_data = np.roll(label_vec, -1)
@@ -64,13 +68,14 @@ def NN_label_vec(label_vec):
 
 
 #学習・識別率算出：Neural Network
-def NN(x_train, y_train, x_test, y_test):
+def MLPC(x_train, y_train, x_test, y_test):
     #オブジェクト生成
     clf = MLPClassifier(hidden_layer_sizes=(100,100), random_state=1)
     clf.fit(x_train, y_train)
 
     #識別率算出
     predicted = clf.predict(x_test)
+    print('MLP')
     print(metrics.classification_report(y_test, predicted))
 
 
@@ -94,12 +99,15 @@ def LR(x_train, y_train, x_test, y_test):
     y_train_pred = mod.predict(x_train)
     y_test_pred = mod.predict(x_test)
 
+    #識別率算出
+    print('Liner Regression: %.3f' % (mod.score(x_test,y_test)))
+
     #教師用、テスト用データに関して平均二乗誤差を出力
     #小さいほどモデルの性能がいい
-    print('MSE Train : %.3f, Test : %.3f' % (mean_squared_error(y_train, y_train_pred), mean_squared_error(y_test, y_test_pred)))
+    print('Liner Regression MSE Train : %.3f, Test : %.3f' % (mean_squared_error(y_train, y_train_pred), mean_squared_error(y_test, y_test_pred)))
     #教師用、テスト用データに関してR^2を出力
     #1に近いほどモデルの性能がいい
-    print('R^2 Train : %.3f, Test : %.3f' % (mod.score(x_train, y_train), mod.score(x_test, y_test)))
+    print('Liner Regression R^2 Train : %.3f, Test : %.3f' % (mod.score(x_train, y_train), mod.score(x_test, y_test)))
 
 
 #学習・識別率算出：Neural Network Regression
@@ -109,7 +117,7 @@ def MLPR(x_train, y_train, x_test, y_test):
     mod.fit(x_train, y_train)
 
     #識別率算出
-    print(mod.score(x_test,y_test))
+    print('Neural Network Regression: %.3f' % (mod.score(x_test,y_test)))
 
 
 #学習・識別率算出：Random Forest Regression
@@ -122,15 +130,27 @@ def RFR(x_train, y_train, x_test, y_test):
     y_train_pred = forest.predict(x_train)
     y_test_pred = forest.predict(x_test)
 
+    #識別率算出
+    print('Random Forest Regression: %.3f' % (forest.score(x_test,y_test)))
+
     #教師用、テスト用データに関して平均二乗誤差を出力
     #小さいほどモデルの性能がいい
-    print('MSE train : %.3f, test : %.3f' % (mean_squared_error(y_train, y_train_pred), mean_squared_error(y_test, y_test_pred)) )
+    print('Random Forest Regression MSE train : %.3f, test : %.3f' % (mean_squared_error(y_train, y_train_pred), mean_squared_error(y_test, y_test_pred)) )
 
     #教師用、テスト用データに関してR^2を出力
     #1に近いほどモデルの性能がいい
-    print('MSE train : %.3f, test : %.3f' % (r2_score(y_train, y_train_pred), r2_score(y_test, y_test_pred)) )
+    print('Random Forest Regression R^2 train : %.3f, test : %.3f' % (r2_score(y_train, y_train_pred), r2_score(y_test, y_test_pred)) )
 
 
+
+#学習・識別率算出：Logistic Regression
+def LogisticR(x_train, y_train, x_test, y_test):
+    #オブジェクト生成
+    mod = LogisticRegression()
+    mod.fit(x_train, y_train)
+
+    #識別率算出
+    print('Logistic Regression: %.3f' % (mod.score(x_test,y_test)))
 
 
 if __name__ == '__main__':
@@ -148,27 +168,33 @@ if __name__ == '__main__':
     input_test = input_data(dr_test)
 
     #特徴抽出、ベクトル化
-    x_train, data_train = data_vec(input_train)
-    x_test, data_test = data_vec(input_test)
+    x_train, data_train, zscore_train = data_vec(input_train)
+    x_test, data_test, zscore_test = data_vec(input_test)
 
+    #用いた特徴csv書き出し
+    zscore_train.to_csv('./kochi_train/zscore_train.csv')
+    data_train.to_csv('./kochi_train/input_train.csv')
 
     #ラベル作成：Neral Network
-    #y_train = NN_label_vec(data_train)
-    #y_test = NN_label_vec(data_test)
+    ny_train = MLPC_label_vec(data_train)
+    ny_test = MLPC_label_vec(data_test)
 
     #学習・識別率算出：Neural Network
-    #NN(x_train, y_train, x_test, y_test)
+    MLPC(x_train, ny_train, x_test, ny_test)
 
 
     #ラベル作成：Regression
-    y_train = R_label_vec(data_train)
-    y_test = R_label_vec(data_test)
+    y_train = R_label_vec(zscore_train)
+    y_test = R_label_vec(zscore_test)
 
     #学習・識別率算出：Linear Regression
-    #LR(x_train, y_train, x_test, y_test)
+    LR(x_train, y_train, x_test, y_test)
 
     #学習・識別率算出：Neural Network Regression
-    #MLPR(x_train, y_train, x_test, y_test)
+    MLPR(x_train, y_train, x_test, y_test)
 
     #学習・識別率算出：Random Forest Regression
     RFR(x_train, y_train, x_test, y_test)
+
+    #学習・識別率算出：
+    LogisticR(x_train, ny_train, x_test, ny_test)
