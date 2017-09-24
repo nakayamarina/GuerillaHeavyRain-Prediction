@@ -1,9 +1,0 @@
-気象庁（http://www.data.jma.go.jp/gmd/risk/obsdl/index.php）
-
-2016s年1年間分　高知県高知市
-・rain.csv -> 雨量
-・temp.csv -> 気温
-・wind.csv -> 風向・風速
-・humidity.csv -> 相対湿度
-
-wetherInfo.csv -> wether2csv.pyで書き出した整形済み気象データ

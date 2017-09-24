@@ -1,0 +1,6 @@
+気象庁（http://www.data.jma.go.jp/gmd/risk/obsdl/index.php）
+
+wetherInfo.csv 
+-> ./kochi_train2013/wetherInfo.csv
+   ./kochi_train2014/wetherInfo.csv
+   ./kochi_train2015/wetherInfo.csvを縦結合したもの
